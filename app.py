@@ -1,5 +1,9 @@
 import streamlit as st
-import cv2
+try:
+    import cv2
+except ImportError:
+    st.error("OpenCV is not installed properly. Please check requirements.txt")
+    st.stop()
 import numpy as np
 from PIL import Image
 from fpdf import FPDF
@@ -77,8 +81,4 @@ if uploaded_file is not None:
                 label="⬇ Download PDF",
                 data=pdf_file,
                 file_name="scanned_document.pdf",
-                mime="application/pdf"
-            )
-
-        # Cleanup
         os.remove(temp_image_path)
