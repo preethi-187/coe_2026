@@ -1,11 +1,7 @@
 import streamlit as st
-try:
-    import cv2
-except ImportError:
-    st.error("OpenCV is not installed properly. Please check requirements.txt")
-    st.stop()
-import numpy as np
 from PIL import Image
+import cv2
+import numpy as np
 from fpdf import FPDF
 import tempfile
 import os
@@ -13,28 +9,23 @@ import os
 st.set_page_config(page_title="Document Scanner", layout="centered")
 
 st.title("📄 Document Scanner App")
-st.write("Upload a document image and convert it into a scanned PDF.")
+st.write("Upload a document image, convert it into black & white scan, and download it as PDF.")
 
-uploaded_file = st.file_uploader(
-    "Upload Document Image",
-    type=["jpg", "jpeg", "png"]
-)
+uploaded_file = st.file_uploader("Upload Document Image", type=["jpg", "jpeg", "png"])
 
 
-def convert_to_scanned(image):
+def convert_to_scan(image):
     # Convert PIL image to OpenCV format
-    image_np = np.array(image)
-
-    # Convert RGB to BGR
-    image_cv = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
+    img = np.array(image)
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
     # Convert to grayscale
-    gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # Noise removal
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    # Adaptive threshold for scanner effect
+    # Adaptive threshold for scanned effect
     scanned = cv2.adaptiveThreshold(
         blurred,
         255,
@@ -53,32 +44,34 @@ if uploaded_file is not None:
     st.subheader("Original Image")
     st.image(image, use_container_width=True)
 
-    if st.button("Convert to Scanned PDF"):
+    if st.button("Convert to Black & White Scan"):
+        scanned_image = convert_to_scan(image)
 
-        scanned_image = convert_to_scanned(image)
-
-        st.subheader("Scanned Black & White Image")
+        st.subheader("Scanned Image")
         st.image(scanned_image, channels="GRAY", use_container_width=True)
 
-        # Save temporary scanned image
-        temp_image_path = tempfile.NamedTemporaryFile(delete=False, suffix=".png").name
-
-        cv2.imwrite(temp_image_path, scanned_image)
+        # Save scanned image temporarily
+        temp_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        cv2.imwrite(temp_img.name, scanned_image)
 
         # Create PDF
         pdf = FPDF()
         pdf.add_page()
 
-        pdf.image(temp_image_path, x=10, y=10, w=190)
+        # Fit image to page
+        pdf.image(temp_img.name, x=10, y=10, w=190)
 
-        pdf_path = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf").name
-
-        pdf.output(pdf_path)
+        pdf_path = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+        pdf.output(pdf_path.name)
 
         # Download button
-        with open(pdf_path, "rb") as pdf_file:
+        with open(pdf_path.name, "rb") as f:
             st.download_button(
-                label="⬇ Download PDF",
-                data=pdf_file,
+                label="📥 Download PDF",
+                data=f,
                 file_name="scanned_document.pdf",
-        os.remove(temp_image_path)
+                mime="application/pdf"
+            )
+
+        # Cleanup
+        os.unlink(temp_img.name)
